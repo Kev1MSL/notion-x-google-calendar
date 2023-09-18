@@ -1,0 +1,26 @@
+[tool.poetry]
+name = "notion-x-google-calendar"
+version = "0.1.0"
+description = ""
+authors = ["Kevin Messali <kevinmessali06@gmail.com>"]
+readme = "README.md"
+license = "mit"
+
+[tool.poetry.dependencies]
+python = "^3.9"
+google-api-python-client = "^2.98.0"
+google-auth-httplib2 = "^0.1.0"
+google-auth-oauthlib = "^1.1.0"
+requests = "^2.31.0"
+python-dotenv = "^1.0.0"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+
+[tool.poetry.scripts]
+notion-x-google-calendar = "notion_x_google_calendar.__main__:main"
+notion-client = "notion_module.notion_client:main"
+google_cal_client = "google_calendar_module.google_calendar_client:main"
