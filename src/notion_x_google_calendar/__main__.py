@@ -27,7 +27,7 @@ def main():
         logging.error("Google Calendar service is not set.")
         return
 
-    bi_directionnal_sync()
+    bi_directionnal_sync(notion_client=notion_clt, google_cal_client=gcal_clt)
 
 
 if __name__ == "__main__":
