@@ -1,7 +1,6 @@
 import datetime
 import os.path
 import logging
-import uuid
 
 from notion_x_google_calendar.models import Event
 
@@ -85,7 +84,80 @@ class GoogleCalendarClient:
             )
             return None
 
+    def _get_user_email(self) -> str:
+        return self.service.calendarList().get(calendarId="primary").execute()["id"]
+
+    def _build_attendees_list(self, attendees: set[str], event: Event) -> list[dict]:
+        user_email = self._get_user_email()
+        if not attendees:
+            return None
+        attendees2add = attendees.copy()
+        attendees2add.add(user_email)
+        return [
+            {"email": attendee.strip(), "responseStatus": event.going}
+            if attendee.strip() == user_email
+            else {"email": attendee.strip()}
+            for attendee in attendees2add
+        ]
+
+    def create_event(self, new_event: Event) -> dict:
+        """Create a new event in Google Calendar.
+
+        Args:
+            new_event (Event): Notion event to add in Google Calendar
+
+        Returns:
+            dict: The created event from Google Calendar as a dict.
+        """
+
+        event = {
+            "summary": new_event.name,
+            "location": new_event.location,
+            "description": new_event.description,
+            "start": {
+                "dateTime": new_event.date.start.isoformat(),
+            },
+            "end": {
+                "dateTime": new_event.date.end.isoformat(),
+            },
+            "attendees": self._build_attendees_list(new_event.attendees, new_event),
+            "reminders": {"useDefault": True},
+        }
+
+        update_conference = 0
+
+        if new_event.is_video_conference:
+            event["conferenceData"] = {
+                "createRequest": {
+                    # Use notion_id as requestId to generate a unique conference id
+                    "requestId": new_event.notion_id,
+                    "conferenceSolutionKey": {"type": "hangoutsMeet"},
+                }
+            }
+            update_conference = 1
+
+        ret = (
+            self.service.events()
+            .insert(
+                calendarId=self.calendar_id,
+                body=event,
+                conferenceDataVersion=update_conference,
+                sendUpdates="all",
+            )
+            .execute()
+        )
+
+        return ret
+
     def update_event(self, google_event2update: Event) -> dict:
+        """Update the event in Google Calendar.
+
+        Args:
+            google_event2update (Event): Notion event to update in Google Calendar.
+
+        Returns:
+            dict: The updated event from Google Calendar as a dict.
+        """
         event2update = (
             self.service.events()
             .get(calendarId=self.calendar_id, eventId=google_event2update.gcal_id)
@@ -99,21 +171,10 @@ class GoogleCalendarClient:
         event2update["description"] = google_event2update.description
         event2update["location"] = google_event2update.location
 
-        # Find the user's email in the attendees list
-        my_email = ""
-        if event2update["attendees"]:
-            for attendee in event2update["attendees"]:
-                if attendee.get("self"):
-                    my_email = attendee.get("email")
-                    break
-
         # Update the attendees list
-        event2update["attendees"] = [
-            {"email": attendee.strip(), "responseStatus": google_event2update.going}
-            if attendee.strip() == my_email
-            else {"email": attendee.strip()}
-            for attendee in google_event2update.attendees
-        ]
+        event2update["attendees"] = self._build_attendees_list(
+            google_event2update.attendees, google_event2update
+        )
 
         # Update the conferenceDataVersion to let Google know that the conference has
         # been updated

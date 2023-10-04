@@ -16,6 +16,17 @@ class Synchronizer:
             notion_clt=notion_clt, google_cal_clt=google_cal_clt
         )
 
+    def _send_conference_update(self, notion_id: str, raw_gcal_event: dict) -> None:
+        """Send the updated conference link to Notion.
+
+        Args:
+            notion_id (str): Notion page id corresponding to the event.
+            raw_gcal_event (dict): Raw Google Calendar event comming from the API.
+        """
+        parsed_gcal_event = self.event_factory.parse_gcal_event(raw_gcal_event)
+        parsed_gcal_event.notion_id = notion_id
+        self.notion_clt.update_event(notion_event_updated=parsed_gcal_event)
+
     def bi_directionnal_sync(self) -> None:
         notion_event_hashtable, gcal_event_hashtable = self.event_factory.build()
 
@@ -41,14 +52,18 @@ class Synchronizer:
                         and gcal_event.meeting_link is None
                         and new_gcal_event["hangoutLink"] is not None
                     ):
-                        parsed_gcal_event = self.event_factory.parse_gcal_event(
-                            new_gcal_event
+                        self._send_conference_update(
+                            notion_id=notion_event.notion_id,
+                            raw_gcal_event=new_gcal_event,
                         )
-                        parsed_gcal_event.notion_id = notion_event.notion_id
+                        # parsed_gcal_event = self.event_factory.parse_gcal_event(
+                        #     new_gcal_event
+                        # )
+                        # parsed_gcal_event.notion_id = notion_event.notion_id
 
-                        self.notion_clt.update_event(
-                            notion_event_updated=parsed_gcal_event
-                        )
+                        # self.notion_clt.update_event(
+                        #     notion_event_updated=parsed_gcal_event
+                        # )
 
                 elif notion_event.last_updated < gcal_event.last_updated:
                     gcal_event.notion_id = notion_event.notion_id
@@ -56,6 +71,35 @@ class Synchronizer:
 
                 else:
                     continue
+                del gcal_event_hashtable.hash_table[notion_event_hash]
+
+            # The event exists in Notion but not in Google Calendar
+            # Create the event in Google Calendar
+            else:
+                notion_event = notion_event_hashtable.hash_table[notion_event_hash]
+                new_gcal_event = self.google_cal_clt.create_event(notion_event)
+
+                # Check if a new conference needs to be created,
+                # then update the meeting link on Notion
+                if (
+                    notion_event.is_video_conference
+                    and new_gcal_event["hangoutLink"] is not None
+                ):
+                    self._send_conference_update(
+                        notion_id=notion_event.notion_id, raw_gcal_event=new_gcal_event
+                    )
+
+                    # parsed_gcal_event = self.event_factory.parse_gcal_event(
+                    #     new_gcal_event
+                    # )
+                    # parsed_gcal_event.notion_id = notion_event.notion_id
+
+                    # self.notion_clt.update_event(notion_event_updated=parsed_gcal_event)
+        for google_event_hash in gcal_event_hashtable.hash_table:
+            # The event exists in Google Calendar but not in Notion
+
+            gcal_event = gcal_event_hashtable.hash_table[google_event_hash]
+            new_notion_event = self.notion_clt.create_event(gcal_event)
 
             # if notion_event.name in gcal_event_hashtable:
             #     gcal_event = gcal_event_hashtable.get_event(notion_event.name)

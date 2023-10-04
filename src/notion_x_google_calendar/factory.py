@@ -25,8 +25,6 @@ class EventFactory:
                     going = attendee.get("responseStatus")
                 break
 
-        if gcal_event["summary"] == "Test event":
-            print(gcal_event)
         event = Event(
             notion_id=None,
             gcal_id=gcal_event["id"],
@@ -38,7 +36,7 @@ class EventFactory:
             date_end=gcal_event["end"]["dateTime"],
             location=gcal_event["location"] if "location" in gcal_event else None,
             calendar_type="Work",
-            attendees=[attendee["email"] for attendee in gcal_event["attendees"]]
+            attendees={attendee["email"] for attendee in gcal_event["attendees"]}
             if "attendees" in gcal_event
             else None,
             meeting_link=gcal_event["hangoutLink"]
@@ -80,9 +78,11 @@ class EventFactory:
             calendar_type=notion_event["properties"]["Calendar"]["select"]["name"]
             if notion_event["properties"]["Calendar"]["select"]
             else None,
-            attendees=notion_event["properties"]["Attendees"]["rich_text"][0][
-                "plain_text"
-            ].split(",")
+            attendees=set(
+                notion_event["properties"]["Attendees"]["rich_text"][0][
+                    "plain_text"
+                ].split(",")
+            )
             if notion_event["properties"]["Attendees"]["rich_text"]
             else None,
             meeting_link=notion_event["properties"]["Meeting Link"]["url"]
