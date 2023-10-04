@@ -29,11 +29,28 @@ class Synchronizer:
                 gcal_event = gcal_event_hashtable.hash_table[notion_event_hash]
 
                 if notion_event.last_updated > gcal_event.last_updated:
-                    # TODO : Update the event in Google Calendar
-                    self.google_cal_clt.update_event()
+                    notion_event.gcal_id = gcal_event.gcal_id
+                    new_gcal_event = self.google_cal_clt.update_event(
+                        google_event2update=notion_event
+                    )
+
+                    # Check if a new conference needs to be created,
+                    # then update the meeting link on Notion
+                    if (
+                        notion_event.is_video_conference
+                        and gcal_event.meeting_link is None
+                        and new_gcal_event["hangoutLink"] is not None
+                    ):
+                        parsed_gcal_event = self.event_factory.parse_gcal_event(
+                            new_gcal_event
+                        )
+                        parsed_gcal_event.notion_id = notion_event.notion_id
+
+                        self.notion_clt.update_event(
+                            notion_event_updated=parsed_gcal_event
+                        )
 
                 elif notion_event.last_updated < gcal_event.last_updated:
-                    print(f"Updating event {notion_event.name} in Notion")
                     gcal_event.notion_id = notion_event.notion_id
                     self.notion_clt.update_event(notion_event_updated=gcal_event)
 

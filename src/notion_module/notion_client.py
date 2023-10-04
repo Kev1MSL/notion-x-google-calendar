@@ -36,37 +36,22 @@ class NotionClient:
             return None
 
     def update_event(self, notion_event_updated: Event) -> None:
+        # Default body initialization
         body = {
             "properties": {
                 "Name": {"title": [{"text": {"content": notion_event_updated.name}}]},
+                "Description": {"rich_text": [{"text": {"content": ""}}]},
+                "Date": {"date": {"start": None, "end": None}},
+                "Duration (mins)": {"number": None},
+                "Location": {"rich_text": [{"text": {"content": ""}}]},
+                "Calendar": {"select": {"name": None}},
+                "Attendees": {"rich_text": [{"text": {"content": ""}}]},
+                "Video conference?": {"checkbox": False},
+                "Meeting Link": {"url": None},
+                "Going?": {"select": {"name": None}},
+                "Organizer": {"rich_text": [{"text": {"content": ""}}]},
             }
         }
-
-        # "Description": {
-        #             "rich_text": [
-        #                 {"text": {"content": notion_event_updated.description}}
-        #             ]
-        #         },
-        #         "Date": {
-        #             "date": {
-        #                 "start": notion_event_updated.date.start.isoformat(),
-        #                 "end": notion_event_updated.date.end.isoformat(),
-        #             }
-        #         },
-        #         "Location": {
-        #             "rich_text": [{"text": {"content": notion_event_updated.location}}]
-        #         },
-        #         "Calendar": {"select": {"name": notion_event_updated.calendar_type}},
-        #         "Attendees": {
-        #             "rich_text": [
-        #                 {"text": {"content": ", ".join(notion_event_updated.attendees)}}
-        #             ]
-        #         },
-        #         "Meeting Link": {"url": notion_event_updated.meeting_link},
-        #         "Going?": {"select": {"name": notion_event_updated.going}},
-        #         "Organizer": {
-        #             "rich_text": [{"text": {"content": notion_event_updated.organizer}}]
-        #         },
 
         if notion_event_updated.description:
             body["properties"]["Description"] = {
@@ -81,6 +66,11 @@ class NotionClient:
             body["properties"]["Date"]["date"][
                 "end"
             ] = notion_event_updated.date.end.isoformat()
+
+        if notion_event_updated.duration:
+            body["properties"]["Duration (mins)"] = {
+                "number": notion_event_updated.duration.total_seconds() / 60
+            }
 
         if notion_event_updated.location:
             body["properties"]["Location"] = {
@@ -99,6 +89,10 @@ class NotionClient:
                 ]
             }
 
+        body["properties"]["Video conference?"] = {
+            "checkbox": notion_event_updated.is_video_conference
+        }
+
         if notion_event_updated.meeting_link:
             body["properties"]["Meeting Link"] = {
                 "url": notion_event_updated.meeting_link
@@ -106,7 +100,7 @@ class NotionClient:
 
         if notion_event_updated.going:
             body["properties"]["Going?"] = {
-                "select": {"name": notion_event_updated.going}
+                "select": {"name": notion_event_updated.is_going_notion}
             }
 
         if notion_event_updated.organizer:
@@ -117,7 +111,7 @@ class NotionClient:
         try:
             ret = self.make_request(
                 "PATCH", f"pages/{notion_event_updated.notion_id}", body=body
-            )["results"]
+            )
             print(ret)
         except Exception as e:
             logging.error(f"An error occurred: {e}")

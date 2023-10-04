@@ -9,6 +9,7 @@ class Event:
         name,
         description,
         location,
+        is_video_conference,
         meeting_link,
         going,
         organizer,
@@ -25,6 +26,7 @@ class Event:
         self.location = location
         self.last_updated = last_updated
         self.date = Date(date_start, date_end)
+        self.is_video_conference = is_video_conference
         self.meeting_link = meeting_link
         self.going = going
         self.organizer = organizer
@@ -33,7 +35,7 @@ class Event:
         self.duration = self.date.duration()
 
     def __str__(self) -> str:
-        return f"Event(id = {self.notion_id if self.notion_id else self.gcal_id}, name = {self.name}, description = {self.description}, location = {self.location}, last_updated = {self.last_updated}, date = {self.date}, meeting_link = {self.meeting_link}, going = {self.going}, organizer = {self.organizer}, attendees = {self.attendees}, calendar_type = {self.calendar_type}, duration = {self.duration})"
+        return f"Event(id = {self.notion_id if self.notion_id else self.gcal_id}, name = {self.name}, description = {self.description}, location = {self.location}, last_updated = {self.last_updated}, date = {self.date}, is_video_conference = {self.is_video_conference} meeting_link = {self.meeting_link}, going = {self.going}, organizer = {self.organizer}, attendees = {self.attendees}, calendar_type = {self.calendar_type}, duration = {self.duration})"
 
     @property
     def get_event_type(self) -> str:
@@ -43,6 +45,26 @@ class Event:
             return "gcal"
         else:
             return None
+
+    @property
+    def is_going_notion(self) -> str:
+        is_going_dict = {
+            "accepted": "✅ Yes",
+            "declined": "❌ No",
+            "tentative": "🤔 Maybe",
+            "needsAction": "🖊️ Needs Action",
+        }
+        return is_going_dict.get(self.going)
+
+    @is_going_notion.setter
+    def is_going_notion(self, value: str) -> None:
+        is_going_dict = {
+            "✅ Yes": "accepted",
+            "❌ No": "declined",
+            "🤔 Maybe": "tentative",
+            "🖊️ Needs Action": "needsAction",
+        }
+        self.going = is_going_dict.get(value, None)
 
 
 class Date:
